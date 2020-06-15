@@ -1,0 +1,25 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: hi-app
+  labels:
+    app: hi
+spec:
+  containers:
+    - name: hi-app
+      image: rajeevr77/ingress-demo-hi:1.0
+      ports:
+        - containerPort: 8082
+  imagePullSecrets:
+    - name: regcred
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: hi-service
+spec:
+  selector:
+    app: hi
+  ports:
+    - port: 80 # Default port for image
+      targetPort: 8082

@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+data:
+  nginx.conf: |
+    pid /run/nginx.pid;
+    include /usr/share/nginx/modules/*.conf;
+
+    user nginx;
+    worker_processes  3;
+    error_log  /var/log/nginx/error.log;
+
+    events {
+      worker_connections  10240;
+    }
+    http {
+      include /etc/nginx/conf.d/*.conf;
+      sendfile            on;
+      tcp_nopush          on;
+      tcp_nodelay         on;
+      keepalive_timeout   65;
+      types_hash_max_size 2048;
+
+      log_format  main
+              'remote_addr:$remote_addr\t'
+              'time_local:$time_local\t'
+              'method:$request_method\t'
+              'uri:$request_uri\t'
+              'host:$host\t'
+              'status:$status\t'
+              'bytes_sent:$body_bytes_sent\t'
+              'referer:$http_referer\t'
+              'useragent:$http_user_agent\t'
+              'forwardedfor:$http_x_forwarded_for\t'
+              'request_time:$request_time';
+      access_log	/var/log/nginx/access.log main;
+      upstream hi {
+        server hi-service:80;
+        keepalive 60;
+      }
+      upstream hello {
+        server hello-service:80;
+        keepalive 60;
+      }
+      server {
+          listen       8000;
+          server_name  _;
+          location /hello {
+              proxy_set_header Host $http_host;
+              proxy_pass       http://hello;
+          }
+          location /hi {
+              proxy_set_header Host $http_host;
+              proxy_pass       http://hi;
+          }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - mountPath: /etc/nginx # mount nginx-conf volumn to /etc/nginx
+              readOnly: true
+              name: nginx-conf
+            - mountPath: /var/log/nginx
+              name: log
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: nginx-conf # place ConfigMap `nginx-conf` on /etc/nginx
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+        - name: log
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+    - port: 80 # Default port for image
+      targetPort: 8000

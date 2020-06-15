@@ -1,0 +1,27 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: hello-app
+  labels:
+    app: hello
+spec:
+  containers:
+    - name: hello-app
+      image: rajeevr77/ingress-demo-hello:1.0
+      imagePullPolicy: IfNotPresent
+      ports:
+        - containerPort: 8081
+  imagePullSecrets:
+    - name: regcred
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: hello-service
+spec:
+  selector:
+    app: hello
+  ports:
+    - port: 80 # Default port for image
+      targetPort: 8081
